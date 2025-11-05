@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-hn-bg text-gray-900;
+    font-family: Verdana, Geneva, sans-serif;
+  }
+}
+
+@layer components {
+  .hn-button {
+    @apply px-2 py-1 text-sm hover:underline cursor-pointer;
+  }
+
+  .hn-link {
+    @apply text-gray-700 hover:underline;
+  }
+
+  .hn-card {
+    @apply bg-white p-4 rounded shadow-sm;
+  }
+
+  .comment-indent {
+    @apply border-l-2 border-gray-200 pl-2 ml-2;
+  }
+
+  .upvote {
+    @apply cursor-pointer text-gray-500 hover:text-hn-orange transition-colors;
+  }
+
+  .upvote.voted {
+    @apply text-hn-orange;
+  }
+}

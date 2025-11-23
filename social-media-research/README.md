@@ -8,20 +8,25 @@ Automated research tool for Instagram and TikTok that leverages the Apify API fo
 - **Flexible Scraping Modes**:
   - Account/Profile scraping: Analyze all content from a specific user
   - Search/Hashtag scraping: Find content based on keywords or hashtags
-- **AI-Powered Analysis**: Uses OpenRouter API with Claude or other LLMs to analyze content
+- **Video Transcript Extraction**: Automatically extract spoken content from videos using OpenAI Whisper API
+- **AI-Powered Analysis**: Uses OpenRouter API with Claude or other LLMs to analyze content and transcripts
 - **Comprehensive Reports**: Generates detailed research reports with:
   - Key themes and patterns
   - Engagement analysis
   - Trend identification
   - Actionable insights
+- **Progress Indicators**: Real-time progress bars for all operations
+- **Robust Error Handling**: Automatic retries with exponential backoff for API failures
+- **Partial Result Saving**: Saves data at each step so you never lose progress
 - **Data Export**: Saves raw data, statistics, and formatted reports
 - **Batch Processing**: Efficiently processes large quantities of content
 
 ## Prerequisites
 
 - Python 3.8 or higher
-- [Apify API key](https://console.apify.com/account/integrations)
-- [OpenRouter API key](https://openrouter.ai/keys)
+- [Apify API key](https://console.apify.com/account/integrations) - Required
+- [OpenRouter API key](https://openrouter.ai/keys) - Required
+- [OpenAI API key](https://platform.openai.com/api-keys) - Optional, for transcript extraction
 
 ## Installation
 
@@ -68,6 +73,7 @@ python main.py --platform <platform> --mode <mode> --target <target> --research-
 - `--research-question`: Your research question (required for analysis)
 - `--max-items`: Maximum number of items to scrape (default: 50)
 - `--include-videos`: Include video file URLs in output
+- `--extract-transcripts`: Extract video transcripts using Whisper API (requires OPENAI_API_KEY)
 - `--no-analysis`: Skip LLM analysis and only save raw data
 - `--output-dir`: Custom output directory (default: `output`)
 
@@ -125,7 +131,27 @@ python main.py \
   --max-items 100
 ```
 
-#### 5. Data Collection Only
+#### 5. Extract Video Transcripts
+
+Analyze spoken content in TikTok videos:
+
+```bash
+python main.py \
+  --platform tiktok \
+  --mode account \
+  --target "mkbhd" \
+  --research-question "What technical concepts does MKBHD explain in his videos?" \
+  --include-videos \
+  --extract-transcripts \
+  --max-items 30
+```
+
+**Note**: Transcript extraction requires:
+- `--include-videos` flag to get video URLs
+- `OPENAI_API_KEY` in your `.env` file
+- Additional costs for Whisper API usage
+
+#### 6. Data Collection Only
 
 Scrape data without AI analysis (for later processing):
 
@@ -179,6 +205,7 @@ APIFY_API_KEY=your_key
 OPENROUTER_API_KEY=your_key
 
 # Optional
+OPENAI_API_KEY=your_key  # For transcript extraction
 OPENROUTER_MODEL=anthropic/claude-3.5-sonnet
 MAX_VIDEOS_PER_SEARCH=50
 INCLUDE_VIDEO_FILES=false
@@ -201,9 +228,18 @@ The tool is organized into modular components:
 
 - `main.py`: CLI interface and workflow orchestration
 - `config.py`: Configuration management
-- `apify_scraper.py`: Apify API integration for Instagram and TikTok
-- `llm_processor.py`: OpenRouter API integration and analysis
+- `apify_scraper.py`: Apify API integration for Instagram and TikTok (with retry logic)
+- `transcript_extractor.py`: Video transcript extraction using Whisper API
+- `llm_processor.py`: OpenRouter API integration and analysis (with retry logic)
 - `report_generator.py`: Report generation and data export
+
+### Robustness Features
+
+- **Automatic Retries**: All API calls retry up to 3 times with exponential backoff
+- **Rate Limit Handling**: Automatically waits and retries when rate limited
+- **Progress Tracking**: Real-time progress bars show operation status
+- **Partial Results**: Data is saved at each step, so interruptions don't lose work
+- **Error Recovery**: Continues processing even if individual items fail
 
 ## Apify Actors Used
 
@@ -238,7 +274,12 @@ The tool is organized into modular components:
 
 - **Apify**: Charges based on compute units; check [pricing](https://apify.com/pricing)
 - **OpenRouter**: Charges per token; varies by model; check [pricing](https://openrouter.ai/docs#models)
-- Typical research session (100 items): ~$0.50-$2.00 depending on configuration
+- **OpenAI Whisper**: $0.006 per minute of audio transcribed; check [pricing](https://openai.com/pricing)
+
+**Estimated costs:**
+- Without transcripts (100 items): ~$0.50-$2.00
+- With transcripts (30 videos, ~5 min each): Add ~$0.90 for Whisper API
+- Total for comprehensive analysis: ~$1.40-$3.00
 
 ## License
 

@@ -1,8 +1,10 @@
 """OpenRouter API integration for LLM-based content analysis."""
 
 import logging
+import time
 import requests
 from typing import List, Dict, Any
+from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
@@ -10,11 +12,19 @@ logger = logging.getLogger(__name__)
 class LLMProcessor:
     """Process content using OpenRouter API."""
 
-    def __init__(self, api_key: str, model: str = "anthropic/claude-3.5-sonnet"):
-        """Initialize OpenRouter client."""
+    def __init__(self, api_key: str, model: str = "anthropic/claude-3.5-sonnet", max_retries: int = 3):
+        """
+        Initialize OpenRouter client.
+
+        Args:
+            api_key: OpenRouter API key
+            model: LLM model to use
+            max_retries: Maximum number of retry attempts for API calls
+        """
         self.api_key = api_key
         self.model = model
         self.base_url = "https://openrouter.ai/api/v1/chat/completions"
+        self.max_retries = max_retries
 
     def analyze_content_batch(
         self,
@@ -75,13 +85,25 @@ Format your response as a structured analysis with clear sections."""
         logger.info(f"Generating deep research report for {len(all_items)} items")
 
         batch_analyses = []
+        num_batches = (len(all_items) + batch_size - 1) // batch_size
 
-        for i in range(0, len(all_items), batch_size):
-            batch = all_items[i:i + batch_size]
-            logger.info(f"Processing batch {i // batch_size + 1} ({len(batch)} items)")
-            analysis = self.analyze_content_batch(batch, research_question)
-            batch_analyses.append(analysis)
+        with tqdm(total=num_batches, desc="Analyzing batches", unit="batch") as pbar:
+            for i in range(0, len(all_items), batch_size):
+                batch = all_items[i:i + batch_size]
+                batch_num = i // batch_size + 1
+                pbar.set_description(f"Analyzing batch {batch_num}/{num_batches}")
 
+                try:
+                    analysis = self.analyze_content_batch(batch, research_question)
+                    batch_analyses.append(analysis)
+                except Exception as e:
+                    logger.error(f"Failed to analyze batch {batch_num}: {e}")
+                    # Continue with other batches even if one fails
+                    batch_analyses.append(f"[Batch {batch_num} analysis failed: {e}]")
+
+                pbar.update(1)
+
+        logger.info("Synthesizing final report...")
         synthesis_prompt = f"""You are synthesizing multiple analyses of social media content into a comprehensive research report.
 
 Research Question: {research_question}
@@ -120,10 +142,16 @@ Format the report professionally with clear sections and subsections."""
                 text = item.get("description", "")
                 engagement = f"Likes: {item.get('likes', 0)}, Comments: {item.get('comments', 0)}, Shares: {item.get('shares', 0)}, Views: {item.get('views', 0)}"
 
+            # Include transcript if available
+            transcript = item.get("transcript")
+            transcript_section = ""
+            if transcript:
+                transcript_section = f"\nTranscript: {transcript[:1000]}{'...' if len(transcript) > 1000 else ''}"
+
             summary = f"""
 Item {idx} [{platform.upper()}]:
 Author: @{username}
-Content: {text[:500]}{'...' if len(text) > 500 else ''}
+Content: {text[:500]}{'...' if len(text) > 500 else ''}{transcript_section}
 Engagement: {engagement}
 URL: {item.get('url', 'N/A')}
 ---
@@ -140,7 +168,19 @@ URL: {item.get('url', 'N/A')}
         return "\n".join(formatted)
 
     def _call_openrouter(self, prompt: str, max_tokens: int = 4096) -> str:
-        """Call OpenRouter API."""
+        """
+        Call OpenRouter API with retry logic.
+
+        Args:
+            prompt: The prompt to send to the LLM
+            max_tokens: Maximum tokens in response
+
+        Returns:
+            LLM response text
+
+        Raises:
+            Exception if all retries fail
+        """
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
@@ -157,11 +197,48 @@ URL: {item.get('url', 'N/A')}
             "max_tokens": max_tokens
         }
 
-        try:
-            response = requests.post(self.base_url, headers=headers, json=data)
-            response.raise_for_status()
-            result = response.json()
-            return result["choices"][0]["message"]["content"]
-        except Exception as e:
-            logger.error(f"Error calling OpenRouter API: {e}")
-            raise
+        for attempt in range(self.max_retries):
+            try:
+                response = requests.post(
+                    self.base_url,
+                    headers=headers,
+                    json=data,
+                    timeout=120
+                )
+                response.raise_for_status()
+                result = response.json()
+                return result["choices"][0]["message"]["content"]
+
+            except requests.exceptions.Timeout:
+                if attempt < self.max_retries - 1:
+                    wait_time = 2 ** attempt
+                    logger.warning(f"OpenRouter API timeout. Retrying in {wait_time}s...")
+                    time.sleep(wait_time)
+                else:
+                    logger.error("OpenRouter API timeout after all retries")
+                    raise
+
+            except requests.exceptions.HTTPError as e:
+                # Handle rate limits
+                if e.response.status_code == 429:
+                    if attempt < self.max_retries - 1:
+                        wait_time = 2 ** (attempt + 2)  # Longer wait for rate limits
+                        logger.warning(f"Rate limited. Retrying in {wait_time}s...")
+                        time.sleep(wait_time)
+                    else:
+                        logger.error("Rate limited after all retries")
+                        raise
+                else:
+                    logger.error(f"HTTP error: {e}")
+                    raise
+
+            except Exception as e:
+                if attempt < self.max_retries - 1:
+                    wait_time = 2 ** attempt
+                    logger.warning(f"API call failed: {e}. Retrying in {wait_time}s...")
+                    time.sleep(wait_time)
+                else:
+                    logger.error(f"Error calling OpenRouter API after {self.max_retries} attempts: {e}")
+                    raise
+
+        raise Exception("Failed to call OpenRouter API after all retries")

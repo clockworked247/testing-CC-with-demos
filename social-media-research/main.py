@@ -8,6 +8,7 @@ Automated research tool for Instagram and TikTok using Apify API and OpenRouter.
 import argparse
 import logging
 import sys
+import os
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -15,6 +16,7 @@ from config import Config
 from apify_scraper import ApifyScraper
 from llm_processor import LLMProcessor
 from report_generator import ReportGenerator
+from transcript_extractor import TranscriptExtractor
 
 logging.basicConfig(
     level=logging.INFO,
@@ -71,6 +73,12 @@ def main():
     )
 
     parser.add_argument(
+        "--extract-transcripts",
+        action="store_true",
+        help="Extract video transcripts using Whisper API (requires OPENAI_API_KEY)"
+    )
+
+    parser.add_argument(
         "--no-analysis",
         action="store_true",
         help="Skip LLM analysis and only save raw data"
@@ -100,6 +108,9 @@ def main():
 def run_research(config: Config, args):
     """Execute the research workflow."""
 
+    total_steps = 5 if args.extract_transcripts else 4
+    current_step = 0
+
     logger.info("=" * 60)
     logger.info("Social Media Research Tool")
     logger.info("=" * 60)
@@ -108,20 +119,25 @@ def run_research(config: Config, args):
     logger.info(f"Target: {args.target}")
     logger.info(f"Research Question: {args.research_question}")
     logger.info(f"Max Items: {args.max_items}")
+    if args.extract_transcripts:
+        logger.info(f"Transcript Extraction: Enabled")
     logger.info("=" * 60)
 
     scraper = ApifyScraper(config.apify_api_key)
     report_gen = ReportGenerator(config.output_dir)
 
-    logger.info("\n[1/4] Scraping content...")
+    # Step 1: Scrape content
+    current_step += 1
+    logger.info(f"\n[{current_step}/{total_steps}] Scraping content...")
     items = scrape_content(scraper, args)
 
     if not items:
         logger.warning("No items found. Exiting.")
         return
 
-    logger.info(f"\n[2/4] Saving raw data...")
-    timestamp = Path(report_gen.output_dir).name
+    # Step 2: Save raw data (partial results)
+    current_step += 1
+    logger.info(f"\n[{current_step}/{total_steps}] Saving raw data...")
     raw_data_file = report_gen.save_raw_data(
         items,
         f"raw_data_{args.platform}_{args.mode}_{args.target.replace('/', '_')}.json"
@@ -131,12 +147,46 @@ def run_research(config: Config, args):
     stats_file = report_gen.save_summary_statistics(items)
     logger.info(f"Statistics saved to: {stats_file}")
 
+    # Step 3: Extract transcripts (if requested)
+    if args.extract_transcripts:
+        current_step += 1
+        logger.info(f"\n[{current_step}/{total_steps}] Extracting video transcripts...")
+
+        # Check for OpenAI API key
+        openai_key = os.getenv("OPENAI_API_KEY")
+        if not openai_key:
+            logger.warning("OPENAI_API_KEY not found. Skipping transcript extraction.")
+        else:
+            try:
+                extractor = TranscriptExtractor(openai_key)
+
+                # Only extract for items with video URLs
+                videos_with_urls = [item for item in items if item.get('video_url')]
+                if videos_with_urls:
+                    logger.info(f"Found {len(videos_with_urls)} videos to transcribe")
+                    items = extractor.extract_batch(items)
+
+                    # Save updated data with transcripts
+                    raw_data_file = report_gen.save_raw_data(
+                        items,
+                        f"raw_data_{args.platform}_{args.mode}_{args.target.replace('/', '_')}_with_transcripts.json"
+                    )
+                    logger.info(f"Data with transcripts saved to: {raw_data_file}")
+                else:
+                    logger.info("No video URLs found for transcript extraction")
+
+            except Exception as e:
+                logger.error(f"Error during transcript extraction: {e}")
+                logger.info("Continuing without transcripts...")
+
     if args.no_analysis:
         logger.info("\nSkipping LLM analysis (--no-analysis flag set)")
         logger.info("\nDone! Check the output directory for results.")
         return
 
-    logger.info("\n[3/4] Analyzing content with LLM...")
+    # Step 4: Analyze with LLM
+    current_step += 1
+    logger.info(f"\n[{current_step}/{total_steps}] Analyzing content with LLM...")
     processor = LLMProcessor(config.openrouter_api_key, config.openrouter_model)
 
     try:
@@ -145,12 +195,15 @@ def run_research(config: Config, args):
             args.research_question
         )
 
-        logger.info("\n[4/4] Generating final report...")
+        # Step 5: Generate final report
+        current_step += 1
+        logger.info(f"\n[{current_step}/{total_steps}] Generating final report...")
         metadata = {
             "Platform": args.platform,
             "Mode": args.mode,
             "Target": args.target,
             "Total Items Analyzed": len(items),
+            "Items with Transcripts": len([i for i in items if i.get('transcript')]),
             "LLM Model": config.openrouter_model
         }
 
@@ -170,7 +223,10 @@ def run_research(config: Config, args):
 
     except Exception as e:
         logger.error(f"Error during LLM processing: {e}")
-        logger.info("Raw data has been saved. You can retry analysis later.")
+        logger.info(f"Partial results saved:")
+        logger.info(f"  - Raw data: {raw_data_file}")
+        logger.info(f"  - Statistics: {stats_file}")
+        logger.info("You can retry analysis later or examine the raw data.")
         raise
 
 

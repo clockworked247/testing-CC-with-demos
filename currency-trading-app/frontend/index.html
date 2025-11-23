@@ -22,6 +22,7 @@
             <button class="tab-btn" data-tab="portfolio">Portfolio</button>
             <button class="tab-btn" data-tab="analysis">AI Analysis</button>
             <button class="tab-btn" data-tab="news">News & Events</button>
+            <button class="tab-btn" data-tab="notifications">🔔 Notifications</button>
         </nav>
 
         <!-- Dashboard Tab -->
@@ -262,6 +263,126 @@
                 <button onclick="loadEconomicCalendar()" class="btn-primary">Load Calendar</button>
                 <div id="economic-calendar" class="calendar-list">
                     <p class="loading">Click "Load Calendar" to view upcoming events</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notifications Tab -->
+        <div id="notifications" class="tab-content">
+            <div class="card">
+                <h2>Notification Settings</h2>
+                <p>Get alerts via email or SMS when there are trading opportunities!</p>
+
+                <form id="notification-settings-form" onsubmit="saveNotificationPreferences(event)">
+                    <h3>Contact Information</h3>
+
+                    <label>Email Address:
+                        <input type="email" id="notif-email" placeholder="your@email.com">
+                    </label>
+
+                    <label>Phone Number (for SMS):
+                        <input type="tel" id="notif-phone" placeholder="+1234567890">
+                        <small style="color: var(--text-secondary);">Format: +1234567890 (include country code)</small>
+                    </label>
+
+                    <h3 style="margin-top: 20px;">Notification Methods</h3>
+
+                    <label style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" id="notif-email-enabled" checked>
+                        Email Notifications
+                    </label>
+
+                    <label style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" id="notif-sms-enabled">
+                        SMS Notifications
+                    </label>
+
+                    <h3 style="margin-top: 20px;">What to Notify Me About</h3>
+
+                    <label style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" id="notif-buy-signals" checked>
+                        Buy Signals
+                    </label>
+
+                    <label style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" id="notif-sell-signals" checked>
+                        Sell Signals
+                    </label>
+
+                    <label style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" id="notif-price-changes" checked>
+                        Significant Price Changes
+                    </label>
+
+                    <h3 style="margin-top: 20px;">Thresholds</h3>
+
+                    <label>Minimum Signal Strength (%):
+                        <input type="number" id="notif-min-strength" value="70" min="0" max="100">
+                        <small style="color: var(--text-secondary);">Only notify for signals with strength >= this value</small>
+                    </label>
+
+                    <label>Price Change Threshold (%):
+                        <input type="number" id="notif-price-threshold" value="2.0" step="0.1" min="0">
+                        <small style="color: var(--text-secondary);">Notify when price changes by more than this percentage</small>
+                    </label>
+
+                    <h3 style="margin-top: 20px;">Currency Pairs to Watch</h3>
+
+                    <label>Watched Pairs:
+                        <input type="text" id="notif-watched-currencies" placeholder="EUR/USD,GBP/USD,USD/JPY">
+                        <small style="color: var(--text-secondary);">Comma-separated list of pairs. Leave empty to watch all major pairs.</small>
+                    </label>
+
+                    <h3 style="margin-top: 20px;">Schedule</h3>
+
+                    <label>Notification Frequency:
+                        <select id="notif-frequency">
+                            <option value="daily" selected>Daily Summary</option>
+                            <option value="hourly">Hourly Checks</option>
+                            <option value="instant">Instant (when signal generated)</option>
+                        </select>
+                    </label>
+
+                    <label>Quiet Hours Start:
+                        <input type="time" id="notif-quiet-start" value="22:00">
+                    </label>
+
+                    <label>Quiet Hours End:
+                        <input type="time" id="notif-quiet-end" value="08:00">
+                    </label>
+
+                    <button type="submit" class="btn-primary" style="margin-top: 20px;">Save Preferences</button>
+                </form>
+
+                <div id="notification-save-result" style="margin-top: 20px;"></div>
+            </div>
+
+            <div class="card">
+                <h2>Test Notifications</h2>
+                <p>Test your notification settings before saving:</p>
+
+                <div style="display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap;">
+                    <button onclick="testEmail()" class="btn-secondary">Test Email</button>
+                    <button onclick="testSMS()" class="btn-secondary">Test SMS</button>
+                    <button onclick="triggerManualCheck()" class="btn-secondary">Trigger Manual Check</button>
+                </div>
+
+                <div id="test-notification-result" style="margin-top: 20px;"></div>
+            </div>
+
+            <div class="card">
+                <h2>Your Notification Preferences</h2>
+                <button onclick="loadNotificationPreferences()" class="btn-secondary">Load Preferences</button>
+                <div id="notification-preferences-list" style="margin-top: 20px;">
+                    <p class="loading">Click "Load Preferences" to view your settings</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Notification History</h2>
+                <button onclick="loadNotificationLogs()" class="btn-secondary">Load Logs</button>
+                <div id="notification-logs-list" style="margin-top: 20px;">
+                    <p class="loading">Click "Load Logs" to view notification history</p>
                 </div>
             </div>
         </div>

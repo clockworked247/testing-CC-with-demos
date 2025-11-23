@@ -578,6 +578,234 @@ async function loadEconomicCalendar() {
     }
 }
 
+// ===== Notification Functions =====
+
+async function saveNotificationPreferences(event) {
+    event.preventDefault();
+
+    const email = document.getElementById('notif-email').value;
+    const phone = document.getElementById('notif-phone').value;
+    const emailEnabled = document.getElementById('notif-email-enabled').checked;
+    const smsEnabled = document.getElementById('notif-sms-enabled').checked;
+    const buySignals = document.getElementById('notif-buy-signals').checked;
+    const sellSignals = document.getElementById('notif-sell-signals').checked;
+    const priceChanges = document.getElementById('notif-price-changes').checked;
+    const minStrength = document.getElementById('notif-min-strength').value;
+    const priceThreshold = document.getElementById('notif-price-threshold').value;
+    const watchedCurrencies = document.getElementById('notif-watched-currencies').value;
+    const frequency = document.getElementById('notif-frequency').value;
+    const quietStart = document.getElementById('notif-quiet-start').value;
+    const quietEnd = document.getElementById('notif-quiet-end').value;
+
+    const resultDiv = document.getElementById('notification-save-result');
+
+    if (!email && !phone) {
+        resultDiv.innerHTML = '<p class="error">Please provide at least an email or phone number</p>';
+        return;
+    }
+
+    resultDiv.innerHTML = '<p class="loading">Saving preferences...</p>';
+
+    try {
+        const params = new URLSearchParams({
+            email_enabled: emailEnabled,
+            sms_enabled: smsEnabled,
+            notify_on_buy_signals: buySignals,
+            notify_on_sell_signals: sellSignals,
+            notify_on_price_changes: priceChanges,
+            min_signal_strength: minStrength,
+            price_change_threshold: priceThreshold,
+            notification_frequency: frequency
+        });
+
+        if (email) params.append('email', email);
+        if (phone) params.append('phone_number', phone);
+        if (watchedCurrencies) params.append('watched_currencies', watchedCurrencies);
+        if (quietStart) params.append('quiet_hours_start', quietStart);
+        if (quietEnd) params.append('quiet_hours_end', quietEnd);
+
+        const response = await fetch(
+            `${API_BASE_URL}/api/notifications/preferences?${params}`,
+            { method: 'POST' }
+        );
+
+        if (response.ok) {
+            const data = await response.json();
+            resultDiv.innerHTML = '<p class="success">✅ Notification preferences saved successfully!</p>';
+        } else {
+            const error = await response.json();
+            resultDiv.innerHTML = `<p class="error">Failed to save: ${error.detail || 'Unknown error'}</p>`;
+        }
+    } catch (error) {
+        resultDiv.innerHTML = '<p class="error">Error saving preferences</p>';
+        console.error('Save preferences error:', error);
+    }
+}
+
+async function testEmail() {
+    const email = document.getElementById('notif-email').value;
+    const resultDiv = document.getElementById('test-notification-result');
+
+    if (!email) {
+        resultDiv.innerHTML = '<p class="error">Please enter an email address first</p>';
+        return;
+    }
+
+    resultDiv.innerHTML = '<p class="loading">Sending test email...</p>';
+
+    try {
+        const response = await fetch(
+            `${API_BASE_URL}/api/notifications/test-email?email=${encodeURIComponent(email)}`,
+            { method: 'POST' }
+        );
+
+        if (response.ok) {
+            resultDiv.innerHTML = '<p class="success">✅ Test email sent! Check your inbox.</p>';
+        } else {
+            const error = await response.json();
+            resultDiv.innerHTML = `<p class="error">Failed to send: ${error.detail || 'Unknown error'}</p>`;
+        }
+    } catch (error) {
+        resultDiv.innerHTML = '<p class="error">Error sending test email</p>';
+        console.error('Test email error:', error);
+    }
+}
+
+async function testSMS() {
+    const phone = document.getElementById('notif-phone').value;
+    const resultDiv = document.getElementById('test-notification-result');
+
+    if (!phone) {
+        resultDiv.innerHTML = '<p class="error">Please enter a phone number first</p>';
+        return;
+    }
+
+    resultDiv.innerHTML = '<p class="loading">Sending test SMS...</p>';
+
+    try {
+        const response = await fetch(
+            `${API_BASE_URL}/api/notifications/test-sms?phone=${encodeURIComponent(phone)}`,
+            { method: 'POST' }
+        );
+
+        if (response.ok) {
+            resultDiv.innerHTML = '<p class="success">✅ Test SMS sent! Check your phone.</p>';
+        } else {
+            const error = await response.json();
+            resultDiv.innerHTML = `<p class="error">Failed to send: ${error.detail || 'Unknown error'}</p>`;
+        }
+    } catch (error) {
+        resultDiv.innerHTML = '<p class="error">Error sending test SMS</p>';
+        console.error('Test SMS error:', error);
+    }
+}
+
+async function triggerManualCheck() {
+    const resultDiv = document.getElementById('test-notification-result');
+    resultDiv.innerHTML = '<p class="loading">Triggering manual notification check...</p>';
+
+    try {
+        const response = await fetch(
+            `${API_BASE_URL}/api/notifications/trigger-check`,
+            { method: 'POST' }
+        );
+
+        if (response.ok) {
+            resultDiv.innerHTML = '<p class="success">✅ Manual check triggered! Notifications will be sent if any signals meet your criteria.</p>';
+        } else {
+            const error = await response.json();
+            resultDiv.innerHTML = `<p class="error">Failed to trigger: ${error.detail || 'Unknown error'}</p>`;
+        }
+    } catch (error) {
+        resultDiv.innerHTML = '<p class="error">Error triggering check</p>';
+        console.error('Trigger check error:', error);
+    }
+}
+
+async function loadNotificationPreferences() {
+    const listDiv = document.getElementById('notification-preferences-list');
+    listDiv.innerHTML = '<p class="loading">Loading...</p>';
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/notifications/preferences`);
+        const data = await response.json();
+
+        if (data.preferences.length === 0) {
+            listDiv.innerHTML = '<p>No preferences saved yet.</p>';
+            return;
+        }
+
+        listDiv.innerHTML = data.preferences.map(pref => `
+            <div class="position-item" style="margin-bottom: 15px;">
+                <h4>${pref.email || pref.phone_number}</h4>
+                <p><strong>Email:</strong> ${pref.email_enabled ? '✅ Enabled' : '❌ Disabled'}</p>
+                <p><strong>SMS:</strong> ${pref.sms_enabled ? '✅ Enabled' : '❌ Disabled'}</p>
+                <p><strong>Min Signal Strength:</strong> ${pref.min_signal_strength}%</p>
+                <p><strong>Watching:</strong> ${pref.watched_currencies || 'All major pairs'}</p>
+                <button onclick="deleteNotificationPreference(${pref.id})" class="btn-secondary" style="margin-top: 10px;">
+                    Delete
+                </button>
+            </div>
+        `).join('');
+    } catch (error) {
+        listDiv.innerHTML = '<p class="error">Failed to load preferences</p>';
+        console.error('Load preferences error:', error);
+    }
+}
+
+async function deleteNotificationPreference(id) {
+    if (!confirm('Are you sure you want to delete this notification preference?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(
+            `${API_BASE_URL}/api/notifications/preferences/${id}`,
+            { method: 'DELETE' }
+        );
+
+        if (response.ok) {
+            alert('Preference deleted successfully!');
+            loadNotificationPreferences();
+        } else {
+            alert('Failed to delete preference');
+        }
+    } catch (error) {
+        alert('Error deleting preference');
+        console.error('Delete error:', error);
+    }
+}
+
+async function loadNotificationLogs() {
+    const logsDiv = document.getElementById('notification-logs-list');
+    logsDiv.innerHTML = '<p class="loading">Loading...</p>';
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/notifications/logs?limit=50`);
+        const data = await response.json();
+
+        if (data.logs.length === 0) {
+            logsDiv.innerHTML = '<p>No notification logs yet.</p>';
+            return;
+        }
+
+        logsDiv.innerHTML = data.logs.map(log => `
+            <div class="news-item">
+                <div class="news-title">
+                    ${log.success ? '✅' : '❌'} ${log.method.toUpperCase()} - ${log.subject}
+                </div>
+                <div class="news-meta">
+                    To: ${log.recipient} | ${new Date(log.sent_at).toLocaleString()}
+                </div>
+                ${log.error_message ? `<p style="color: var(--danger); margin-top: 5px;">Error: ${log.error_message}</p>` : ''}
+            </div>
+        `).join('');
+    } catch (error) {
+        logsDiv.innerHTML = '<p class="error">Failed to load logs</p>';
+        console.error('Load logs error:', error);
+    }
+}
+
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
     loadTopMovers();

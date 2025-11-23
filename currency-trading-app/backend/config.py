@@ -54,4 +54,25 @@ class Config:
     HISTORICAL_UPDATE_INTERVAL = 3600  # 1 hour
     NEWS_UPDATE_INTERVAL = 1800  # 30 minutes
 
+    # Notification Configuration
+    # Email (SMTP)
+    SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
+    SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+    SMTP_USERNAME = os.getenv("SMTP_USERNAME", "")
+    SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+    SMTP_FROM_EMAIL = os.getenv("SMTP_FROM_EMAIL", "")
+
+    # SMS (Twilio)
+    TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
+    TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "")
+    TWILIO_FROM_PHONE = os.getenv("TWILIO_FROM_PHONE", "")
+
+    # Notification Scheduler
+    NOTIFICATION_CHECK_INTERVAL = os.getenv("NOTIFICATION_CHECK_INTERVAL", "daily")  # hourly or daily
+    NOTIFICATION_CHECK_TIME = os.getenv("NOTIFICATION_CHECK_TIME", "09:00")  # For daily checks
+
+    # Default notification thresholds
+    DEFAULT_SIGNAL_STRENGTH_THRESHOLD = 70  # Only notify for signals >= 70% strength
+    DEFAULT_PRICE_CHANGE_THRESHOLD = 2.0  # Notify if price changes > 2%
+
 config = Config()

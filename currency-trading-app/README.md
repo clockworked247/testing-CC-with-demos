@@ -25,6 +25,12 @@ A comprehensive, AI-powered forex trading analysis platform that helps you monit
 - **Currency Fundamentals**: Learn what drives each currency's value
 - **Interactive Charts**: Visualize price history and portfolio allocation
 - **Beautiful Web Interface**: Modern, responsive dashboard
+- **🔔 Automated Notifications**: Get email and SMS alerts for trading opportunities
+  - Scheduled checks (hourly or daily)
+  - Customizable signal strength thresholds
+  - Price change alerts
+  - Quiet hours support
+  - [**→ See Notification Setup Guide**](NOTIFICATIONS_SETUP.md)
 
 ## 🏗️ Architecture
 
@@ -42,7 +48,9 @@ currency-trading-app/
 │       ├── technical_analysis.py    # Technical indicators
 │       ├── news_service.py          # News fetching
 │       ├── llm_service.py           # AI analysis
-│       └── signals_service.py       # Trading signals
+│       ├── signals_service.py       # Trading signals
+│       ├── notification_service.py  # Email & SMS notifications
+│       └── scheduler_service.py     # Automated alert scheduler
 ├── frontend/                # Web interface
 │   ├── index.html          # Main page
 │   ├── styles.css          # Styling

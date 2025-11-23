@@ -9,7 +9,7 @@ from typing import List, Optional
 from datetime import datetime, timedelta
 import logging
 
-from database import init_db, get_db
+from database import init_db, get_db, NotificationPreference, NotificationLog
 from config import config
 from services.currency_service import currency_service
 from services.historical_service import historical_service
@@ -18,6 +18,8 @@ from services.technical_analysis import technical_analysis
 from services.news_service import news_service
 from services.llm_service import llm_service
 from services.signals_service import signals_service
+from services.notification_service import notification_service
+from services.scheduler_service import scheduler
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -42,9 +44,17 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize database on startup"""
+    """Initialize database and scheduler on startup"""
     init_db()
+    scheduler.start()
     logger.info("Application started successfully")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on shutdown"""
+    scheduler.stop()
+    logger.info("Application shutdown complete")
 
 
 @app.get("/")
@@ -437,6 +447,198 @@ async def get_currency_fundamentals(currency: str):
         "currency": currency,
         "explanation": explanation
     }
+
+
+# ===== Notification Endpoints =====
+
+@app.post("/api/notifications/preferences")
+async def create_notification_preference(
+    email: Optional[str] = Query(None, description="Email address"),
+    phone_number: Optional[str] = Query(None, description="Phone number (E.164 format)"),
+    email_enabled: bool = Query(True, description="Enable email notifications"),
+    sms_enabled: bool = Query(False, description="Enable SMS notifications"),
+    notify_on_buy_signals: bool = Query(True),
+    notify_on_sell_signals: bool = Query(True),
+    notify_on_price_changes: bool = Query(True),
+    min_signal_strength: float = Query(70.0, description="Minimum signal strength (0-100)"),
+    price_change_threshold: float = Query(2.0, description="Price change % threshold"),
+    watched_currencies: Optional[str] = Query(None, description="Comma-separated pairs (e.g., EUR/USD,GBP/USD)"),
+    notification_frequency: str = Query("daily", description="instant, hourly, or daily"),
+    quiet_hours_start: Optional[str] = Query(None, description="Quiet hours start (HH:MM)"),
+    quiet_hours_end: Optional[str] = Query(None, description="Quiet hours end (HH:MM)"),
+    db: Session = Depends(get_db)
+):
+    """Create or update notification preferences"""
+
+    if not email and not phone_number:
+        raise HTTPException(status_code=400, detail="Must provide email or phone number")
+
+    # Check if preference already exists
+    existing = None
+    if email:
+        existing = db.query(NotificationPreference).filter(
+            NotificationPreference.email == email
+        ).first()
+    elif phone_number:
+        existing = db.query(NotificationPreference).filter(
+            NotificationPreference.phone_number == phone_number
+        ).first()
+
+    if existing:
+        # Update existing preference
+        existing.email = email
+        existing.phone_number = phone_number
+        existing.email_enabled = email_enabled
+        existing.sms_enabled = sms_enabled
+        existing.notify_on_buy_signals = notify_on_buy_signals
+        existing.notify_on_sell_signals = notify_on_sell_signals
+        existing.notify_on_price_changes = notify_on_price_changes
+        existing.min_signal_strength = min_signal_strength
+        existing.price_change_threshold = price_change_threshold
+        existing.watched_currencies = watched_currencies
+        existing.notification_frequency = notification_frequency
+        existing.quiet_hours_start = quiet_hours_start
+        existing.quiet_hours_end = quiet_hours_end
+        existing.updated_at = datetime.utcnow()
+
+        db.commit()
+        db.refresh(existing)
+        pref = existing
+    else:
+        # Create new preference
+        pref = NotificationPreference(
+            email=email,
+            phone_number=phone_number,
+            email_enabled=email_enabled,
+            sms_enabled=sms_enabled,
+            notify_on_buy_signals=notify_on_buy_signals,
+            notify_on_sell_signals=notify_on_sell_signals,
+            notify_on_price_changes=notify_on_price_changes,
+            min_signal_strength=min_signal_strength,
+            price_change_threshold=price_change_threshold,
+            watched_currencies=watched_currencies,
+            notification_frequency=notification_frequency,
+            quiet_hours_start=quiet_hours_start,
+            quiet_hours_end=quiet_hours_end
+        )
+
+        db.add(pref)
+        db.commit()
+        db.refresh(pref)
+
+    return {
+        "id": pref.id,
+        "email": pref.email,
+        "phone_number": pref.phone_number,
+        "email_enabled": pref.email_enabled,
+        "sms_enabled": pref.sms_enabled,
+        "notify_on_buy_signals": pref.notify_on_buy_signals,
+        "notify_on_sell_signals": pref.notify_on_sell_signals,
+        "notify_on_price_changes": pref.notify_on_price_changes,
+        "min_signal_strength": pref.min_signal_strength,
+        "price_change_threshold": pref.price_change_threshold,
+        "watched_currencies": pref.watched_currencies,
+        "notification_frequency": pref.notification_frequency,
+        "quiet_hours_start": pref.quiet_hours_start,
+        "quiet_hours_end": pref.quiet_hours_end
+    }
+
+
+@app.get("/api/notifications/preferences")
+async def get_notification_preferences(db: Session = Depends(get_db)):
+    """Get all notification preferences"""
+    preferences = db.query(NotificationPreference).all()
+
+    return {
+        "preferences": [{
+            "id": p.id,
+            "email": p.email,
+            "phone_number": p.phone_number,
+            "email_enabled": p.email_enabled,
+            "sms_enabled": p.sms_enabled,
+            "min_signal_strength": p.min_signal_strength,
+            "watched_currencies": p.watched_currencies
+        } for p in preferences]
+    }
+
+
+@app.delete("/api/notifications/preferences/{preference_id}")
+async def delete_notification_preference(
+    preference_id: int,
+    db: Session = Depends(get_db)
+):
+    """Delete a notification preference"""
+    pref = db.query(NotificationPreference).filter(
+        NotificationPreference.id == preference_id
+    ).first()
+
+    if not pref:
+        raise HTTPException(status_code=404, detail="Preference not found")
+
+    db.delete(pref)
+    db.commit()
+
+    return {"message": "Preference deleted successfully"}
+
+
+@app.post("/api/notifications/test-email")
+async def test_email(
+    email: str = Query(..., description="Email to test"),
+):
+    """Send a test email"""
+    success, error = notification_service.test_email_configuration(email)
+
+    if not success:
+        raise HTTPException(status_code=500, detail=error or "Failed to send email")
+
+    return {"message": "Test email sent successfully"}
+
+
+@app.post("/api/notifications/test-sms")
+async def test_sms(
+    phone: str = Query(..., description="Phone number to test (E.164 format)"),
+):
+    """Send a test SMS"""
+    success, error = notification_service.test_sms_configuration(phone)
+
+    if not success:
+        raise HTTPException(status_code=500, detail=error or "Failed to send SMS")
+
+    return {"message": "Test SMS sent successfully"}
+
+
+@app.get("/api/notifications/logs")
+async def get_notification_logs(
+    limit: int = Query(50, description="Number of logs to retrieve"),
+    db: Session = Depends(get_db)
+):
+    """Get notification logs"""
+    logs = db.query(NotificationLog).order_by(
+        NotificationLog.sent_at.desc()
+    ).limit(limit).all()
+
+    return {
+        "logs": [{
+            "id": log.id,
+            "type": log.notification_type,
+            "method": log.method,
+            "recipient": log.recipient,
+            "subject": log.subject,
+            "sent_at": log.sent_at.isoformat(),
+            "success": log.success,
+            "error_message": log.error_message
+        } for log in logs]
+    }
+
+
+@app.post("/api/notifications/trigger-check")
+async def trigger_notification_check():
+    """Manually trigger a notification check (for testing)"""
+    try:
+        scheduler.trigger_manual_check()
+        return {"message": "Notification check triggered successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ===== Health Check =====

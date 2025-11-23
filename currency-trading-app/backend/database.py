@@ -116,6 +116,62 @@ class LLMAnalysis(Base):
         return f"<LLMAnalysis {self.analysis_type} for {self.currency_pair}>"
 
 
+class NotificationPreference(Base):
+    """User notification preferences"""
+    __tablename__ = "notification_preferences"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String(255), nullable=True, index=True)
+    phone_number = Column(String(20), nullable=True)
+
+    # Notification methods
+    email_enabled = Column(Boolean, default=True)
+    sms_enabled = Column(Boolean, default=False)
+
+    # What to notify about
+    notify_on_buy_signals = Column(Boolean, default=True)
+    notify_on_sell_signals = Column(Boolean, default=True)
+    notify_on_price_changes = Column(Boolean, default=True)
+    notify_on_portfolio_changes = Column(Boolean, default=False)
+
+    # Thresholds
+    min_signal_strength = Column(Float, default=70.0)  # Only notify for signals >= this strength
+    price_change_threshold = Column(Float, default=2.0)  # Notify if price changes > this %
+
+    # Currencies to watch (comma-separated)
+    watched_currencies = Column(String(500), nullable=True)  # e.g., "EUR/USD,GBP/USD"
+
+    # Schedule
+    notification_frequency = Column(String(20), default="daily")  # instant, hourly, daily
+    quiet_hours_start = Column(String(5), nullable=True)  # e.g., "22:00"
+    quiet_hours_end = Column(String(5), nullable=True)  # e.g., "08:00"
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<NotificationPreference {self.email or self.phone_number}>"
+
+
+class NotificationLog(Base):
+    """Log of sent notifications"""
+    __tablename__ = "notification_log"
+
+    id = Column(Integer, primary_key=True, index=True)
+    preference_id = Column(Integer, ForeignKey("notification_preferences.id"), nullable=True)
+    notification_type = Column(String(50), nullable=False)  # signal, price_change, portfolio
+    method = Column(String(10), nullable=False)  # email or sms
+    recipient = Column(String(255), nullable=False)
+    subject = Column(String(500), nullable=True)
+    message = Column(Text, nullable=False)
+    sent_at = Column(DateTime, default=datetime.utcnow, index=True)
+    success = Column(Boolean, default=True)
+    error_message = Column(Text, nullable=True)
+
+    def __repr__(self):
+        return f"<NotificationLog {self.method} to {self.recipient} at {self.sent_at}>"
+
+
 # Database engine and session
 engine = create_engine(
     config.DATABASE_URL,

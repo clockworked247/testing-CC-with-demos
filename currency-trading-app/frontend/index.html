@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Currency Trading Analysis Platform</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>📊 Currency Trading Analysis Platform</h1>
+            <p class="subtitle">AI-Powered Forex Analysis & Trading Signals</p>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="nav-tabs">
+            <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+            <button class="tab-btn" data-tab="signals">Trading Signals</button>
+            <button class="tab-btn" data-tab="portfolio">Portfolio</button>
+            <button class="tab-btn" data-tab="analysis">AI Analysis</button>
+            <button class="tab-btn" data-tab="news">News & Events</button>
+        </nav>
+
+        <!-- Dashboard Tab -->
+        <div id="dashboard" class="tab-content active">
+            <div class="grid-2">
+                <div class="card">
+                    <h2>Currency Converter</h2>
+                    <div class="converter">
+                        <input type="number" id="convert-amount" placeholder="Amount" value="1000">
+                        <select id="convert-from">
+                            <option value="USD" selected>USD - US Dollar</option>
+                            <option value="EUR">EUR - Euro</option>
+                            <option value="GBP">GBP - British Pound</option>
+                            <option value="JPY">JPY - Japanese Yen</option>
+                            <option value="CHF">CHF - Swiss Franc</option>
+                            <option value="CAD">CAD - Canadian Dollar</option>
+                            <option value="AUD">AUD - Australian Dollar</option>
+                            <option value="NZD">NZD - New Zealand Dollar</option>
+                            <option value="SGD">SGD - Singapore Dollar</option>
+                            <option value="INR">INR - Indian Rupee</option>
+                        </select>
+                        <span class="arrow">→</span>
+                        <select id="convert-to">
+                            <option value="USD">USD - US Dollar</option>
+                            <option value="EUR" selected>EUR - Euro</option>
+                            <option value="GBP">GBP - British Pound</option>
+                            <option value="JPY">JPY - Japanese Yen</option>
+                            <option value="CHF">CHF - Swiss Franc</option>
+                            <option value="CAD">CAD - Canadian Dollar</option>
+                            <option value="AUD">AUD - Australian Dollar</option>
+                            <option value="NZD">NZD - New Zealand Dollar</option>
+                            <option value="SGD">SGD - Singapore Dollar</option>
+                            <option value="INR">INR - Indian Rupee</option>
+                        </select>
+                        <button onclick="convertCurrency()" class="btn-primary">Convert</button>
+                    </div>
+                    <div id="conversion-result" class="result-box"></div>
+                </div>
+
+                <div class="card">
+                    <h2>Top Currency Movers (24h)</h2>
+                    <div id="top-movers" class="movers-list">
+                        <p class="loading">Loading...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Historical Price Chart</h2>
+                <div class="chart-controls">
+                    <select id="chart-base">
+                        <option value="EUR">EUR</option>
+                        <option value="USD" selected>USD</option>
+                        <option value="GBP">GBP</option>
+                        <option value="JPY">JPY</option>
+                    </select>
+                    <span>/</span>
+                    <select id="chart-quote">
+                        <option value="USD">USD</option>
+                        <option value="EUR" selected>EUR</option>
+                        <option value="GBP">GBP</option>
+                        <option value="JPY">JPY</option>
+                    </select>
+                    <select id="chart-period">
+                        <option value="7">7 Days</option>
+                        <option value="30" selected>30 Days</option>
+                        <option value="60">60 Days</option>
+                        <option value="90">90 Days</option>
+                    </select>
+                    <button onclick="loadChart()" class="btn-secondary">Load Chart</button>
+                </div>
+                <canvas id="price-chart"></canvas>
+            </div>
+        </div>
+
+        <!-- Trading Signals Tab -->
+        <div id="signals" class="tab-content">
+            <div class="card">
+                <h2>Generate Trading Signal</h2>
+                <div class="signal-controls">
+                    <select id="signal-base">
+                        <option value="EUR" selected>EUR</option>
+                        <option value="USD">USD</option>
+                        <option value="GBP">GBP</option>
+                        <option value="JPY">JPY</option>
+                        <option value="AUD">AUD</option>
+                        <option value="CAD">CAD</option>
+                    </select>
+                    <span>/</span>
+                    <select id="signal-quote">
+                        <option value="USD" selected>USD</option>
+                        <option value="EUR">EUR</option>
+                        <option value="GBP">GBP</option>
+                        <option value="JPY">JPY</option>
+                        <option value="CHF">CHF</option>
+                    </select>
+                    <label>
+                        <input type="checkbox" id="signal-use-llm"> Use AI Analysis
+                    </label>
+                    <button onclick="generateSignal()" class="btn-primary">Generate Signal</button>
+                </div>
+                <div id="signal-result" class="signal-result"></div>
+            </div>
+
+            <div class="card">
+                <h2>Scan for Opportunities</h2>
+                <div class="scan-controls">
+                    <select id="scan-type">
+                        <option value="BUY" selected>Buy Opportunities</option>
+                        <option value="SELL">Sell Opportunities</option>
+                    </select>
+                    <label>
+                        Min Strength: <input type="number" id="scan-strength" value="60" min="0" max="100">
+                    </label>
+                    <button onclick="scanOpportunities()" class="btn-primary">Scan Market</button>
+                </div>
+                <div id="scan-results" class="opportunities-list"></div>
+            </div>
+
+            <div class="card">
+                <h2>Recent Signals</h2>
+                <div id="recent-signals" class="signals-list">
+                    <p class="loading">Click "Load Recent Signals" to view history</p>
+                </div>
+                <button onclick="loadRecentSignals()" class="btn-secondary">Load Recent Signals</button>
+            </div>
+        </div>
+
+        <!-- Portfolio Tab -->
+        <div id="portfolio" class="tab-content">
+            <div class="grid-2">
+                <div class="card">
+                    <h2>Add Position</h2>
+                    <form id="add-position-form" onsubmit="addPosition(event)">
+                        <label>Currency:
+                            <select id="position-currency" required>
+                                <option value="EUR">EUR</option>
+                                <option value="GBP">GBP</option>
+                                <option value="JPY">JPY</option>
+                                <option value="CHF">CHF</option>
+                                <option value="CAD">CAD</option>
+                                <option value="AUD">AUD</option>
+                                <option value="INR">INR</option>
+                            </select>
+                        </label>
+                        <label>Amount:
+                            <input type="number" id="position-amount" step="0.01" required>
+                        </label>
+                        <label>Purchase Price (USD):
+                            <input type="number" id="position-price" step="0.000001" required>
+                        </label>
+                        <label>Notes:
+                            <input type="text" id="position-notes">
+                        </label>
+                        <button type="submit" class="btn-primary">Add Position</button>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <h2>Portfolio Summary</h2>
+                    <div id="portfolio-summary" class="portfolio-summary">
+                        <p class="loading">Loading portfolio...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Your Positions</h2>
+                <div id="portfolio-positions" class="positions-list">
+                    <p class="loading">Loading positions...</p>
+                </div>
+                <button onclick="loadPortfolio()" class="btn-secondary">Refresh Portfolio</button>
+            </div>
+
+            <div class="card">
+                <h2>Currency Allocation</h2>
+                <canvas id="allocation-chart"></canvas>
+            </div>
+        </div>
+
+        <!-- AI Analysis Tab -->
+        <div id="analysis" class="tab-content">
+            <div class="card">
+                <h2>AI Currency Analysis</h2>
+                <div class="analysis-controls">
+                    <select id="analysis-base">
+                        <option value="EUR" selected>EUR</option>
+                        <option value="USD">USD</option>
+                        <option value="GBP">GBP</option>
+                        <option value="JPY">JPY</option>
+                    </select>
+                    <span>/</span>
+                    <select id="analysis-quote">
+                        <option value="USD" selected>USD</option>
+                        <option value="EUR">EUR</option>
+                        <option value="GBP">GBP</option>
+                        <option value="JPY">JPY</option>
+                    </select>
+                    <button onclick="getAIAnalysis()" class="btn-primary">Get AI Analysis</button>
+                </div>
+                <div id="ai-analysis-result" class="analysis-result"></div>
+            </div>
+
+            <div class="card">
+                <h2>Daily Market Summary</h2>
+                <button onclick="getDailySummary()" class="btn-primary">Generate Summary</button>
+                <div id="daily-summary" class="summary-result"></div>
+            </div>
+
+            <div class="card">
+                <h2>Currency Fundamentals</h2>
+                <div class="fundamentals-controls">
+                    <select id="fundamentals-currency">
+                        <option value="USD" selected>USD - US Dollar</option>
+                        <option value="EUR">EUR - Euro</option>
+                        <option value="GBP">GBP - British Pound</option>
+                        <option value="JPY">JPY - Japanese Yen</option>
+                        <option value="CHF">CHF - Swiss Franc</option>
+                    </select>
+                    <button onclick="getFundamentals()" class="btn-primary">Learn About This Currency</button>
+                </div>
+                <div id="fundamentals-result" class="fundamentals-result"></div>
+            </div>
+        </div>
+
+        <!-- News & Events Tab -->
+        <div id="news" class="tab-content">
+            <div class="card">
+                <h2>Latest Forex News</h2>
+                <button onclick="loadNews()" class="btn-primary">Load Latest News</button>
+                <div id="news-list" class="news-list">
+                    <p class="loading">Click "Load Latest News" to view headlines</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Economic Calendar</h2>
+                <button onclick="loadEconomicCalendar()" class="btn-primary">Load Calendar</button>
+                <div id="economic-calendar" class="calendar-list">
+                    <p class="loading">Click "Load Calendar" to view upcoming events</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>Currency Trading Analysis Platform v1.0 | Powered by AI</p>
+            <p class="disclaimer">⚠️ This tool is for educational purposes. Always consult a financial advisor before making investment decisions.</p>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
